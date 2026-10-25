@@ -140,23 +140,40 @@
 
   /* ── Reconhecimento de voz ─────────────────────────── */
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  /* No iPhone, pela app do ecrã principal, a gravação às vezes não arranca (limitação da Apple):
+     o pedido de microfone aparece e depois nada. Por isso há um limite de espera, e parar funciona sempre. */
+  const IOS_APP = navigator.standalone === true;
   const mic = {
     supported: !!SR,
+    iosApp: !!SR && IOS_APP,
     start({ onPartial, onFinal, onError }) {
+      if (tts.ok) { tts.current = null; speechSynthesis.cancel(); }
+      if (actx && actx.state === 'running') actx.suspend?.(); // o iPhone precisa do áudio livre para gravar
       const r = new SR();
       r.lang = 'en-GB';
       r.interimResults = true;
       r.maxAlternatives = 3;
-      let finalTexts = [];
+      let finalTexts = [], started = false, over = false, maxLen = 0, stopping = 0;
+      const finish = (fn) => { if (over) return; over = true; clearTimeout(noStart); clearTimeout(maxLen); clearTimeout(stopping); fn(); };
+      const quit = (fn) => { try { r.abort(); } catch (e) { /* já parou */ } finish(fn); };
+      // Se a gravação não arrancar, desiste em vez de deixar o exercício pendurado (com folga para os avisos de autorização).
+      const noStart = setTimeout(() => { if (!started) quit(() => onError?.('no-start')); }, 20000);
+      // Parar nunca fica à espera: antes de arrancar cancela logo; depois, se o fim não chegar, fecha com o que ouviu.
+      const stop = () => {
+        if (!started) return quit(() => onError?.('no-start'));
+        try { r.stop(); } catch (e) { /* já parou */ }
+        stopping = setTimeout(() => quit(() => onFinal?.(finalTexts)), 3000);
+      };
+      r.onstart = () => { started = true; maxLen = setTimeout(stop, 12000); };
       r.onresult = (e) => {
         const res = e.results[e.results.length - 1];
         onPartial?.(res[0].transcript);
         if (res.isFinal) finalTexts = Array.from(res).map((alt) => alt.transcript);
       };
-      r.onerror = (e) => onError?.(e.error || 'error');
-      r.onend = () => onFinal?.(finalTexts);
-      try { r.start(); } catch (err) { onError?.('not-allowed'); }
-      return r;
+      r.onerror = (e) => finish(() => onError?.(e.error || 'error'));
+      r.onend = () => finish(() => onFinal?.(finalTexts));
+      try { r.start(); } catch (err) { finish(() => onError?.('not-allowed')); }
+      return { stop, abort: () => quit(() => {}) };
     },
   };
 

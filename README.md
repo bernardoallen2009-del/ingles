@@ -37,6 +37,8 @@ units/u01.js          Unidade 1: Abrir a consulta e colher a história (dias 1 a
 
 O ícone fica o sapo e a app abre em ecrã inteiro.
 
+No iPhone, o microfone às vezes não arranca pela app do ecrã principal (limitação da Apple). Nesse caso a app passa sozinha para a autoavaliação; para falar com correção automática, abra o site no Safari.
+
 ### Atualizar depois
 
 Sempre que mudar alguma coisa (por exemplo, uma unidade nova): Source Control → escrever uma mensagem → **Commit** → **Sync Changes**. O Vercel volta a publicar sozinho em menos de um minuto.

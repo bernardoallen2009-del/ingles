@@ -202,9 +202,10 @@
           setRec(false);
           if (err === 'no-speech') { setMsg('Não ouvi nada. Carregue no microfone e fale perto do telemóvel.'); return; }
           if (err === 'aborted') return;
+          if (err === 'no-start' && !DUO.micStalled && !mic.iosApp) { DUO.micStalled = true; setMsg('O microfone não arrancou. Carregue outra vez no microfone.'); return; }
           DUO.micBlocked = true;
           setMode('self');
-          setMsg('O microfone não está disponível aqui. Treine em voz alta e avalie-se.');
+          setMsg(err === 'service-not-allowed' ? 'O reconhecimento de voz está desligado neste telemóvel (no iPhone: Definições → Geral → Teclado → Ditado). Por agora, treine em voz alta e avalie-se.' : mic.iosApp ? '' : 'O microfone não está disponível aqui. Treine em voz alta e avalie-se.');
         },
         onFinal: (alts) => {
           setRec(false);
@@ -245,6 +246,7 @@
             </div>
           </div>`}
       ${msg && html`<p className="hint">${msg}</p>`}
+      ${!msg && mode === 'self' && mic.iosApp && DUO.micBlocked && html`<p className="hint">No iPhone, o microfone às vezes não funciona pela app do ecrã principal. Para falar com correção automática, abra o site no Safari.</p>`}
       ${!locked && html`<button type="button" className="linkish" onClick=${() => submit({ skip: true })}>Agora não posso falar</button>`}
     </div>`;
   }
