@@ -112,7 +112,7 @@
     get ok() { return typeof window.speechSynthesis !== 'undefined'; },
     init() {
       if (!this.ok) return;
-      const pick = () => {
+      const pick = this.pick = () => {
         const vs = speechSynthesis.getVoices();
         this.voice = vs.find((v) => /^en[-_]GB/i.test(v.lang) && /google|daniel|kate|serena|martha|arthur|libby|sonia|ryan/i.test(v.name))
           || vs.find((v) => /^en[-_]GB/i.test(v.lang)) || vs.find((v) => /^en/i.test(v.lang)) || null;
@@ -122,11 +122,16 @@
     },
     speak(text, rate) {
       if (!this.ok) return false;
-      speechSynthesis.cancel();
+      if (!this.voice) this.pick?.(); // no Android as vozes às vezes só chegam depois
+      if (this.current) speechSynthesis.cancel(); // só interrompe se ainda estiver a dizer outra frase
+      if (speechSynthesis.paused) speechSynthesis.resume();
       const u = new SpeechSynthesisUtterance(String(text).replace(/_{2,}/g, '…'));
       u.lang = 'en-GB';
       if (this.voice) u.voice = this.voice;
       u.rate = rate || DUO.store.state.settings.rate || 0.95;
+      const done = () => { if (this.current === u) this.current = null; };
+      u.onend = done; u.onerror = done;
+      this.current = u; // guardar a referência também evita que o navegador perca a frase a meio
       speechSynthesis.speak(u);
       return true;
     },
@@ -166,10 +171,30 @@
     o.connect(g).connect(actx.destination);
     o.start(actx.currentTime + start); o.stop(actx.currentTime + start + dur + 0.05);
   }
+  function audio() {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state !== 'running') actx.resume?.(); // depois de mudar de app ou de uma chamada, o som fica suspenso
+    return actx;
+  }
+  /* O iPhone só deixa tocar som depois de um toque: o primeiro toque desbloqueia os efeitos e a voz. */
+  const UNLOCK = ['touchend', 'click', 'keydown'];
+  let voiceUnlocked = false;
+  function unlockAudio() {
+    try {
+      const src = audio().createBufferSource();
+      src.buffer = actx.createBuffer(1, 1, 22050); src.connect(actx.destination); src.start(0);
+    } catch (e) { /* sem áudio */ }
+    if (!voiceUnlocked && tts.ok) {
+      voiceUnlocked = true;
+      const u = new SpeechSynthesisUtterance(''); u.volume = 0; speechSynthesis.speak(u);
+    }
+    if (actx && actx.state === 'running') UNLOCK.forEach((t) => window.removeEventListener(t, unlockAudio, true));
+  }
+  UNLOCK.forEach((t) => window.addEventListener(t, unlockAudio, true));
   function sfx(kind) {
     if (!DUO.store.state.settings.sound) return;
     try {
-      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      audio();
       if (kind === 'ok') { tone(659, 0, 0.12); tone(988, 0.09, 0.22); }
       else if (kind === 'bad') { tone(196, 0, 0.18, 'triangle', 0.15); tone(147, 0.12, 0.25, 'triangle', 0.15); }
       else if (kind === 'tap') { tone(520, 0, 0.05, 'sine', 0.05); }
