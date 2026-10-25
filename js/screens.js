@@ -30,7 +30,7 @@
       ? html`<div className="notice warn"><b>Falhou um dia.</b> Perdeu a série de ${state.notice.n} ${state.notice.n === 1 ? 'dia' : 'dias'}. Faça uma lição hoje para começar uma nova.
           <button type="button" className="linkish" onClick=${() => store.set((s) => ({ ...s, notice: null }))}>Ok</button></div>`
       : !game.practicedToday(state) && state.streak > 0
-        ? html`<div className=${'notice' + (hour >= 18 ? ' warn' : '')}><${Icon} name="flame" size=${18} /> ${hour >= 18 ? 'A sua série de ' + state.streak + ' dias acaba à meia-noite. Faça uma lição!' : 'Faça uma lição hoje para manter a série de ' + state.streak + ' dias.'}</div>`
+        ? html`<div className=${'notice' + (hour >= 18 ? ' warn' : '')}><${Icon} name="flame" size=${18} /> ${hour >= 18 ? 'A sua série de ' + state.streak + (state.streak === 1 ? ' dia' : ' dias') + ' acaba à meia-noite. Faça uma lição!' : 'Faça uma lição hoje para manter a série de ' + state.streak + (state.streak === 1 ? ' dia' : ' dias') + '.'}</div>`
         : null;
 
     return html`<div className="screen path">
